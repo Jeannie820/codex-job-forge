@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { createJob, fetchJobs, patchJobStatus } from '../api/jobs';
 
 export type JobStatus = 'saved' | 'applied' | 'interviewing' | 'offer' | 'rejected' | 'archived';
 
@@ -128,19 +129,19 @@ export const useJobsStore = defineStore('jobs', {
     rejectedCount: (state) => state.jobs.filter((job) => job.status === 'rejected').length
   },
   actions: {
-    addJob(input: NewJobInput) {
-      const id = Date.now();
-      this.jobs.unshift({
-        id,
-        ...input,
-        appliedAt: new Date().toISOString().slice(0, 10)
-      });
-      return id;
+    async loadJobs() {
+      this.jobs = await fetchJobs();
     },
-    updateJobStatus(id: number, status: JobStatus) {
+    async addJob(input: NewJobInput) {
+      const job = await createJob(input);
+      this.jobs.unshift(job);
+      return job.id;
+    },
+    async updateJobStatus(id: number, status: JobStatus) {
+      const updated = await patchJobStatus(id, status);
       const job = this.jobs.find((item) => item.id === id);
       if (job) {
-        job.status = status;
+        Object.assign(job, updated);
       }
     }
   }

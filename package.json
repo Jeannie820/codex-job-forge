@@ -7,12 +7,26 @@
     "apps/api"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @job-forge/web",
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\"",
     "dev:web": "npm run dev --workspace @job-forge/web",
     "dev:api": "npm run start:dev --workspace @job-forge/api",
+    "start": "npm run start --workspace @job-forge/api",
     "build": "npm run build --workspaces",
     "build:web": "npm run build --workspace @job-forge/web",
     "build:api": "npm run build --workspace @job-forge/api",
-    "lint": "npm run lint --workspaces"
+    "lint": "npm run lint --workspaces",
+    "db:generate": "prisma generate",
+    "db:init": "sqlite3 prisma/job-forge.db < prisma/init.sql",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "node prisma/seed.js",
+    "db:setup": "npm run db:init",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prisma": "^6.19.0"
   }
 }

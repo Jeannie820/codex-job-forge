@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Job {
+  id               Int           @id @default(autoincrement())
+  title            String
+  company          String
+  location         String
+  salary           String
+  source           String
+  status           String        @default("saved")
+  match            Int           @default(70)
+  requirementsJson String        @default("[]")
+  description      String        @default("")
+  note             String        @default("")
+  appliedAt        String        @default("")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  applications     Application[]
+  interviews       Interview[]
+}
+
+model Application {
+  id          Int               @id @default(autoincrement())
+  jobId       Int?
+  job         Job?              @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  company     String
+  title       String
+  channel     String
+  resume      String
+  date        String
+  response    String
+  status      String  @default("submitted")
+  description String            @default("")
+  alert       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model Interview {
+  id                         Int             @id @default(autoincrement())
+  jobId                      Int?
+  job                        Job?            @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  interviewAt                String
+  type                       String
+  status                     String
+  round                      Int             @default(1)
+  title                      String
+  company                    String
+  location                   String
+  score                      Int?
+  companyResearch            String?
+  roleMatch                  String?
+  questions                  String?
+  projectStories             String?
+  preparedQuestionsJson      String          @default("[]")
+  preparedProjectStoriesJson String          @default("[]")
+  usedAssetIdsJson           String          @default("[]")
+  strengths                  String?
+  improvements               String?
+  followUp                   String?
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+}
+
+model Asset {
+  id            Int       @id @default(autoincrement())
+  title         String
+  type          String
+  tagsJson      String    @default("[]")
+  usage         Int       @default(0)
+  updatedAtText String
+  createdAtText String
+  content       String    @default("")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}

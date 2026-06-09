@@ -1,34 +1,19 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { ArrowLeft, Calendar, Check, EditPen, Location, Plus, Search, Timer } from '@element-plus/icons-vue';
 import { assetTypeLabels, type AssetItem, type AssetType, useAssetsStore } from '../stores/assets';
+import {
+  createInterview,
+  fetchInterviews,
+  toggleInterviewPreparation,
+  updateInterview,
+  updateInterviewStatus,
+  type AssetCascaderPath,
+  type Interview,
+  type InterviewStatus,
+  type InterviewType
+} from '../api/interviews';
 import { useJobsStore } from '../stores/jobs';
-
-type InterviewStatus = 'notStarted' | 'done' | 'cancelled';
-type InterviewType = 'phone' | 'technical' | 'video' | 'onsite' | 'hr';
-type AssetCascaderPath = Array<string | number>;
-
-interface Interview {
-  id: number;
-  interviewAt: string;
-  type: InterviewType;
-  status: InterviewStatus;
-  round: number;
-  title: string;
-  company: string;
-  location: string;
-  score?: number;
-  companyResearch?: string;
-  roleMatch?: string;
-  questions?: string;
-  projectStories?: string;
-  preparedQuestions?: string[];
-  preparedProjectStories?: string[];
-  usedAssetIds?: number[];
-  strengths?: string;
-  improvements?: string;
-  followUp?: string;
-}
 
 interface InterviewForm {
   jobId: number | '';
@@ -207,6 +192,11 @@ const interviews = ref<Interview[]>([
   }
 ]);
 
+onMounted(async () => {
+  await Promise.all([jobsStore.loadJobs(), assetsStore.loadAssets()]);
+  interviews.value = await fetchInterviews();
+});
+
 const availableJobs = computed(() => jobsStore.jobs.filter((job) => job.status !== 'saved'));
 const dialogTitle = computed(() => (editingInterviewId.value ? '编辑面试' : '添加面试'));
 const dialogConfirmText = computed(() => (editingInterviewId.value ? '保存修改' : '添加面试'));
@@ -314,12 +304,12 @@ const getPrepProgress = (interview: Interview, kind: PrepKind) => {
 const isPrepCompleted = (interview: Interview, kind: PrepKind, item: string) =>
   getPreparedItems(interview, kind).includes(item);
 
-const togglePrepItem = (interview: Interview, kind: PrepKind, item: string) => {
-  const field = getPrepField(kind);
-  const preparedItems = interview[field] ?? [];
-  interview[field] = preparedItems.includes(item)
-    ? preparedItems.filter((preparedItem) => preparedItem !== item)
-    : [...preparedItems, item];
+const togglePrepItem = async (interview: Interview, kind: PrepKind, item: string) => {
+  const updated = await toggleInterviewPreparation(interview.id, kind, item);
+  Object.assign(interview, updated);
+  if (selectedInterview.value?.id === interview.id) {
+    selectedInterview.value = interview;
+  }
 };
 
 const baseTitle = (interview: Interview) => interview.title.replace(/\s*·\s*第\s*\d+\s*轮$/, '');
@@ -361,9 +351,12 @@ const openEditDialog = (interview: Interview) => {
   addDialogVisible.value = true;
 };
 
-const completeInterview = (interview: Interview) => {
-  interview.status = 'done';
-  interview.score = interview.score ?? 85;
+const completeInterview = async (interview: Interview) => {
+  const updated = await updateInterviewStatus(interview.id, 'done');
+  Object.assign(interview, updated);
+  if (selectedInterview.value?.id === interview.id) {
+    selectedInterview.value = interview;
+  }
 };
 
 const closeDialog = () => {
@@ -371,26 +364,21 @@ const closeDialog = () => {
   editingInterviewId.value = null;
 };
 
-const submitInterview = () => {
+const submitInterview = async () => {
   const selectedJob = jobsStore.jobs.find((job) => job.id === form.value.jobId);
   const editingInterview = interviews.value.find((item) => item.id === editingInterviewId.value) ?? null;
   if ((!selectedJob && !editingInterview) || !form.value.interviewAt) {
     return;
   }
 
-  const source = selectedJob ?? editingInterview;
   const nextQuestions = splitLines(form.value.questions, fallbackQuestions);
   const nextProjectStories = splitLines(form.value.projectStories, fallbackProjectStories);
-  const nextInterview: Interview = {
-    id: editingInterview?.id ?? Date.now(),
+  const payload = {
+    jobId: selectedJob?.id ?? (typeof form.value.jobId === 'number' ? form.value.jobId : editingInterview?.jobId ?? null),
     interviewAt: form.value.interviewAt,
     type: form.value.type,
     status: form.value.status,
     round: form.value.round || 1,
-    title: `${selectedJob ? selectedJob.title : baseTitle(editingInterview as Interview)} · 第 ${form.value.round || 1} 轮`,
-    company: source?.company ?? '',
-    location: source?.location ?? '',
-    score: form.value.status === 'done' ? form.value.reviewScore : undefined,
     companyResearch: form.value.companyResearch,
     roleMatch: form.value.roleMatch,
     questions: form.value.questions,
@@ -405,10 +393,12 @@ const submitInterview = () => {
   };
 
   if (editingInterview) {
-    Object.assign(editingInterview, nextInterview);
+    const updated = await updateInterview(editingInterview.id, payload);
+    Object.assign(editingInterview, updated);
     selectedInterview.value = editingInterview;
   } else {
-    interviews.value.unshift(nextInterview);
+    const created = await createInterview(payload);
+    interviews.value.unshift(created);
   }
 
   addDialogVisible.value = false;

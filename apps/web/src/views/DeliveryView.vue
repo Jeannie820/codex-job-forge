@@ -1,22 +1,13 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { Calendar, Connection, Plus, Search, WarningFilled } from '@element-plus/icons-vue';
+import {
+  createApplication,
+  fetchApplications,
+  type DeliveryRecord,
+  type DeliveryStatus
+} from '../api/applications';
 import { useJobsStore } from '../stores/jobs';
-
-type DeliveryStatus = 'submitted' | 'viewed' | 'contacted' | 'interviewing' | 'offer' | 'rejected';
-
-interface DeliveryRecord {
-  id: number;
-  company: string;
-  title: string;
-  channel: string;
-  resume: string;
-  date: string;
-  response: string;
-  status: DeliveryStatus;
-  description: string;
-  alert?: string;
-}
 
 interface DeliveryForm {
   jobId: number | null;
@@ -158,6 +149,11 @@ const records = ref<DeliveryRecord[]>([
   }
 ]);
 
+onMounted(async () => {
+  await jobsStore.loadJobs();
+  records.value = await fetchApplications();
+});
+
 const metrics = computed(() => [
   { label: '全部投递', value: records.value.length },
   { label: '已查看', value: records.value.filter((item) => item.status === 'viewed').length },
@@ -212,21 +208,23 @@ const openAddDialog = () => {
   addDialogVisible.value = true;
 };
 
-const submitRecord = () => {
+const submitRecord = async () => {
   const job = jobsStore.jobs.find((item) => item.id === form.jobId);
   if (!job) return;
 
-  records.value.push({
-    id: Date.now(),
-    company: job.company,
-    title: job.title,
-    channel: form.channel || '未填写',
-    resume: form.resume || '未填写',
-    date: form.date,
-    response: form.response ? `${form.response} 小时` : '等待中',
+  const record = await createApplication({
+    jobId: job.id,
+    resume: form.resume,
+    channel: form.channel,
     status: form.status,
-    description: form.note || '暂无备注'
+    date: form.date,
+    response: form.response,
+    note: form.note
   });
+
+  records.value = [record, ...records.value.filter((item) => item.id !== record.id)].sort((first, second) =>
+    second.date.localeCompare(first.date)
+  );
 
   sortBy.value = 'time';
   addDialogVisible.value = false;

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { createAsset, fetchAssets, updateAsset } from '../api/assets';
 
 export type AssetType = 'resume' | 'story' | 'portfolio' | 'question' | 'ai';
 
@@ -130,15 +131,21 @@ export const useAssetsStore = defineStore('assets', {
     assets: initialAssets
   }),
   actions: {
-    addAsset(input: NewAssetInput) {
-      const today = new Date().toISOString().slice(0, 10);
-      this.assets.unshift({
-        id: Date.now(),
-        usage: 0,
-        updatedAt: today,
-        createdAt: today,
-        ...input
-      });
+    async loadAssets() {
+      this.assets = await fetchAssets();
+    },
+    async addAsset(input: NewAssetInput) {
+      const asset = await createAsset(input);
+      this.assets.unshift(asset);
+      return asset.id;
+    },
+    async updateAsset(id: number, input: Partial<NewAssetInput & { usage: number }>) {
+      const updated = await updateAsset(id, input);
+      const asset = this.assets.find((item) => item.id === id);
+      if (asset) {
+        Object.assign(asset, updated);
+      }
+      return updated;
     }
   }
 });

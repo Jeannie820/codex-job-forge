@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
   ArrowLeft,
   ArrowRight,
@@ -58,6 +58,10 @@ const typeOptions = [
 
 const assets = computed(() => assetsStore.assets);
 
+onMounted(() => {
+  void assetsStore.loadAssets();
+});
+
 const metrics = computed(() => [
   { label: '全部资产', value: assets.value.length, active: true },
   { label: '简历', value: assets.value.filter((asset) => asset.type === 'resume').length },
@@ -88,13 +92,13 @@ const openAddDialog = () => {
   addDialogVisible.value = true;
 };
 
-const submitAsset = () => {
+const submitAsset = async () => {
   const title = form.value.title.trim();
   if (!title) {
     return;
   }
 
-  assetsStore.addAsset({
+  await assetsStore.addAsset({
     title,
     type: form.value.type,
     tags: form.value.tags
@@ -119,13 +123,16 @@ const startEditContent = () => {
   isEditingContent.value = true;
 };
 
-const saveContent = () => {
+const saveContent = async () => {
   if (!selectedAsset.value) {
     return;
   }
 
-  selectedAsset.value.content = editingContent.value;
-  selectedAsset.value.updatedAt = new Date().toISOString().slice(0, 10);
+  const updatedAsset = await assetsStore.updateAsset(selectedAsset.value.id, {
+    content: editingContent.value
+  });
+  selectedAsset.value = updatedAsset;
+  editingContent.value = updatedAsset.content ?? '';
   isEditingContent.value = false;
 };
 </script>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { Check, Close, DataAnalysis, Document, EditPen, Memo, Plus, Search, Warning } from '@element-plus/icons-vue';
 import { useJobsStore } from '../stores/jobs';
 import type { Job, JobStatus, NewJobInput } from '../stores/jobs';
@@ -47,6 +47,10 @@ const initialForm = (): NewJobInput => ({
 });
 
 const form = reactive<NewJobInput>(initialForm());
+
+onMounted(() => {
+  void jobsStore.loadJobs();
+});
 
 const filteredJobs = computed(() => {
   const keyword = searchText.value.trim().toLowerCase();
@@ -113,9 +117,9 @@ const removeRequirement = (index: number) => {
   form.requirements.splice(index, 1);
 };
 
-const submitJob = () => {
+const submitJob = async () => {
   if (!form.title || !form.company) return;
-  pinnedJobId.value = jobsStore.addJob({
+  pinnedJobId.value = await jobsStore.addJob({
     ...form,
     requirements: form.requirements.length ? [...form.requirements] : ['待补充岗位要求']
   });
@@ -134,9 +138,9 @@ const openJobDrawer = (job: Job) => {
   drawerVisible.value = true;
 };
 
-const updateSelectedStatus = (status: JobStatus) => {
+const updateSelectedStatus = async (status: JobStatus) => {
   if (!selectedJob.value) return;
-  jobsStore.updateJobStatus(selectedJob.value.id, status);
+  await jobsStore.updateJobStatus(selectedJob.value.id, status);
 };
 </script>
 
